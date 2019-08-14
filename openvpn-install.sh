@@ -325,15 +325,16 @@ crl-verify crl.pem" >> /etc/openvpn/server/server.conf
 		firewall-cmd --permanent --direct --add-rule ipv4 nat POSTROUTING 0 -s 10.8.0.0/24 ! -d 10.8.0.0/24 -j SNAT --to $IP
 	else
 		# Create a service to set up persistent iptables rules
+		IFACE=$(ip addr show | awk '/inet.*brd/{print $NF; exit}')
 		echo "[Unit]
 Before=network.target
 [Service]
 Type=oneshot
-ExecStart=/sbin/iptables -t nat -A POSTROUTING -s 10.8.0.0/24 ! -d 10.8.0.0/24 -j SNAT --to $IP
+ExecStart=/sbin/iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o $IFACE -j MASQUERADE
 ExecStart=/sbin/iptables -I INPUT -p $PROTOCOL --dport $PORT -j ACCEPT
 ExecStart=/sbin/iptables -I FORWARD -s 10.8.0.0/24 -j ACCEPT
 ExecStart=/sbin/iptables -I FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT
-ExecStop=/sbin/iptables -t nat -D POSTROUTING -s 10.8.0.0/24 ! -d 10.8.0.0/24 -j SNAT --to $IP
+ExecStop=/sbin/iptables -t nat -D POSTROUTING -s 10.8.0.0/24 -o $IFACE -j MASQUERADE
 ExecStop=/sbin/iptables -D INPUT -p $PROTOCOL --dport $PORT -j ACCEPT
 ExecStop=/sbin/iptables -D FORWARD -s 10.8.0.0/24 -j ACCEPT
 ExecStop=/sbin/iptables -D FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT
